@@ -75,6 +75,56 @@ async function run() {
       }
     });
 
+    // Add new vehicle
+    app.post('/vehicles', async (req, res) => {
+      try {
+        const vehicle = req.body;
+        vehicle.createdAt = new Date().toISOString();
+        const result = await vehiclesCollection.insertOne(vehicle);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    // Update vehicle
+    app.put('/vehicles/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const options = { upsert: false };
+        const updatedVehicle = req.body;
+        const vehicle = {
+          $set: {
+            vehicleName: updatedVehicle.vehicleName,
+            owner: updatedVehicle.owner,
+            category: updatedVehicle.category,
+            pricePerDay: updatedVehicle.pricePerDay,
+            location: updatedVehicle.location,
+            availability: updatedVehicle.availability,
+            description: updatedVehicle.description,
+            coverImage: updatedVehicle.coverImage
+          }
+        };
+        const result = await vehiclesCollection.updateOne(filter, vehicle, options);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    // Delete vehicle
+    app.delete('/vehicles/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await vehiclesCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
 
     run().catch(console.dir);
 
