@@ -51,6 +51,31 @@ async function run() {
       }
     });
 
+    app.get('/vehicles/:id', async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const vehicle = await vehiclesCollection.findOne(query);
+        res.send(vehicle);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+
+    app.get('/my-vehicles/:email', async (req, res) => {
+      try {
+        const email = req.params.email;
+        const query = { userEmail: email };
+        const cursor = vehiclesCollection.find(query);
+        const vehicles = await cursor.toArray();
+        res.send(vehicles);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+
     run().catch(console.dir);
 
 app.get('/', (req, res) => {
