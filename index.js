@@ -29,7 +29,7 @@ async function run() {
     const vehiclesCollection = database.collection("vehicles");
     const bookingsCollection = database.collection("bookings");
 
-
+//all vehicles
     app.get('/vehicles', async (req, res) => {
       try {
         const cursor = vehiclesCollection.find();
@@ -41,6 +41,7 @@ async function run() {
     });
 
 
+//latest vehicles
     app.get('/vehicles/latest', async (req, res) => {
       try {
         const cursor = vehiclesCollection.find().sort({ createdAt: -1 }).limit(6);
@@ -75,7 +76,7 @@ async function run() {
       }
     });
 
-    // Add new vehicle
+// add vehicle
     app.post('/vehicles', async (req, res) => {
       try {
         const vehicle = req.body;
@@ -87,7 +88,7 @@ async function run() {
       }
     });
 
-    // Update vehicle
+// update vehicle
     app.put('/vehicles/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -113,7 +114,7 @@ async function run() {
       }
     });
 
-    // Delete vehicle
+// delete vehicle
     app.delete('/vehicles/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -124,9 +125,37 @@ async function run() {
         res.status(500).send({ error: error.message });
       }
     });
+// booking
+    app.post('/bookings', async (req, res) => {
+      try {
+        const booking = req.body;
+        booking.createdAt = new Date().toISOString();
+        const result = await bookingsCollection.insertOne(booking);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
 
 
-    run().catch(console.dir);
+    app.get('/my-bookings/:email', async (req, res) => {
+      try {
+        const email = req.params.email;
+        const query = { userEmail: email };
+        const cursor = bookingsCollection.find(query);
+        const bookings = await cursor.toArray();
+        res.send(bookings);
+      } catch (error) {
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+  } catch (error) {
+    console.error("MongoDB connection error:", error);
+  }
+}
+
+run().catch(console.dir);
 
 app.get('/', (req, res) => {
   res.send('TravelEase Server is Running!');
