@@ -1,15 +1,37 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const admin = require('firebase-admin');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
+// Firebase Admin 
+const serviceAccount = require(process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 app.use(cors());
 app.use(express.json());
 
+// Middleware to verify Firebase token
+const verifyToken = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split('Bearer ')[1];
+    
+    if (!token) {
+      return res.status(401).send({ error: 'No token provided' });
+    }
+
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    return res.status(401).send({ error: 'Invalid token' });
+  }
+};
 
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri, {
@@ -29,7 +51,9 @@ async function run() {
     const vehiclesCollection = database.collection("vehicles");
     const bookingsCollection = database.collection("bookings");
 
-//all vehicles
+
+    
+    // All vehicles
     app.get('/vehicles', async (req, res) => {
       try {
         const cursor = vehiclesCollection.find();
@@ -40,8 +64,7 @@ async function run() {
       }
     });
 
-
-//latest vehicles
+    // Latest 6 vehicles
     app.get('/vehicles/latest', async (req, res) => {
       try {
         const cursor = vehiclesCollection.find().sort({ createdAt: -1 }).limit(6);
@@ -52,6 +75,7 @@ async function run() {
       }
     });
 
+    // Single vehicle
     app.get('/vehicles/:id', async (req, res) => {
       try {
         const id = req.params.id;
@@ -64,9 +88,17 @@ async function run() {
     });
 
 
-    app.get('/my-vehicles/:email', async (req, res) => {
+    
+    // Get user's vehicles
+    app.get('/my-vehicles/:email', verifyToken, async (req, res) => {
       try {
         const email = req.params.email;
+        
+        
+        if (req.user.email !== email) {
+          return res.status(403).send({ error: 'Unauthorized access' });
+        }
+        
         const query = { userEmail: email };
         const cursor = vehiclesCollection.find(query);
         const vehicles = await cursor.toArray();
@@ -76,10 +108,16 @@ async function run() {
       }
     });
 
-// add vehicle
-    app.post('/vehicles', async (req, res) => {
+    // Add vehicle
+    app.post('/vehicles', verifyToken, async (req, res) => {
       try {
         const vehicle = req.body;
+        
+      
+        if (req.user.email !== vehicle.userEmail) {
+          return res.status(403).send({ error: 'Unauthorized access' });
+        }
+        
         vehicle.createdAt = new Date().toISOString();
         const result = await vehiclesCollection.insertOne(vehicle);
         res.send(result);
@@ -88,11 +126,22 @@ async function run() {
       }
     });
 
-// update vehicle
-    app.put('/vehicles/:id', async (req, res) => {
+    // Update vehicle
+    app.put('/vehicles/:id', verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
+        
+        // Check if vehicle belongs to the user
+        const existingVehicle = await vehiclesCollection.findOne(filter);
+        if (!existingVehicle) {
+          return res.status(404).send({ error: 'Vehicle not found' });
+        }
+        
+        if (existingVehicle.userEmail !== req.user.email) {
+          return res.status(403).send({ error: 'Unauthorized access' });
+        }
+        
         const options = { upsert: false };
         const updatedVehicle = req.body;
         const vehicle = {
@@ -114,21 +163,39 @@ async function run() {
       }
     });
 
-// delete vehicle
-    app.delete('/vehicles/:id', async (req, res) => {
+    // Delete vehicle
+    app.delete('/vehicles/:id', verifyToken, async (req, res) => {
       try {
         const id = req.params.id;
         const query = { _id: new ObjectId(id) };
+        
+        // Check if vehicle belongs to the user
+        const existingVehicle = await vehiclesCollection.findOne(query);
+        if (!existingVehicle) {
+          return res.status(404).send({ error: 'Vehicle not found' });
+        }
+        
+        if (existingVehicle.userEmail !== req.user.email) {
+          return res.status(403).send({ error: 'Unauthorized access' });
+        }
+        
         const result = await vehiclesCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: error.message });
       }
     });
-// booking
-    app.post('/bookings', async (req, res) => {
+
+    // Create booking
+    app.post('/bookings', verifyToken, async (req, res) => {
       try {
         const booking = req.body;
+        
+      
+        if (req.user.email !== booking.userEmail) {
+          return res.status(403).send({ error: 'Unauthorized access' });
+        }
+        
         booking.createdAt = new Date().toISOString();
         const result = await bookingsCollection.insertOne(booking);
         res.send(result);
@@ -137,10 +204,16 @@ async function run() {
       }
     });
 
-
-    app.get('/my-bookings/:email', async (req, res) => {
+    // Get user's bookings
+    app.get('/my-bookings/:email', verifyToken, async (req, res) => {
       try {
         const email = req.params.email;
+        
+  
+        if (req.user.email !== email) {
+          return res.status(403).send({ error: 'Unauthorized access' });
+        }
+        
         const query = { userEmail: email };
         const cursor = bookingsCollection.find(query);
         const bookings = await cursor.toArray();
