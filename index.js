@@ -7,7 +7,7 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Firebase Admin - Environment Variables থেকে লোড করুন
+// Firebase Admin - Environment Variables
 const serviceAccount = {
   type: "service_account",
   project_id: process.env.FIREBASE_PROJECT_ID,
@@ -57,7 +57,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    //await client.connect();
     console.log("Connected to MongoDB!");
     
     const database = client.db("travelEaseDB");
